@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+    <!-- Yandex Games SDK -->
+    <script src="/sdk.js"></script>
+
+    <meta charset="utf-8">
+    <title> {{{ PRODUCT_NAME }}}</title>
+    <link rel="shortcut icon" href="TemplateData/favicon.ico">
+    <link rel="stylesheet" href="TemplateData/style.css">
+#if SHOW_DIAGNOSTICS
+    <link rel="stylesheet" href="<<<TemplateData/diagnostics.css>>>">
+    <script src="<<<TemplateData/diagnostics.js>>>"></script>
+#endif
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+      background: black;
+    }
+
+    #unity-container {
+      width: 100%;
+      height: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      background: black;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #unity-canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: black;
+    }
+  </style>
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <canvas id="unity-canvas" width={{{ WIDTH }}} height={{{ HEIGHT }}} tabindex="-1"></canvas>
+      <div id="unity-loading-bar">
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"> </div>
+      <div id="unity-footer">
+        
+        
+#if SHOW_DIAGNOSTICS
+        <img id="diagnostics-icon" src="TemplateData/webmemd-icon.png">
+#endif
+        
+      </div>
+    </div>
+    <script>
+      var canvas = document.querySelector("#unity-canvas");
+
+      function unityShowBanner(msg, type) {
+        var warningBanner = document.querySelector("#unity-warning");
+        function updateBannerVisibility() {
+          warningBanner.style.display = warningBanner.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warningBanner.appendChild(div);
+        if (type == 'error') div.style = 'background: red; padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: yellow; padding: 10px;';
+          setTimeout(function() {
+            warningBanner.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      var buildUrl = "Build";
+      var loaderUrl = buildUrl + "/{{{ LOADER_FILENAME }}}";
+      var config = {
+        arguments: [],
+        dataUrl: buildUrl + "/{{{ DATA_FILENAME }}}",
+        frameworkUrl: buildUrl + "/{{{ FRAMEWORK_FILENAME }}}",
+#if USE_THREADS
+        workerUrl: buildUrl + "/{{{ WORKER_FILENAME }}}",
+#endif
+#if USE_WASM
+        codeUrl: buildUrl + "/{{{ CODE_FILENAME }}}",
+#endif
+#if SYMBOLS_FILENAME
+        symbolsUrl: buildUrl + "/{{{ SYMBOLS_FILENAME }}}",
+#endif
+        streamingAssetsUrl: "StreamingAssets",
+        companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+        productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+        productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
+        showBanner: unityShowBanner,
+      };
+
+
+      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+
+
+        var meta = document.createElement('meta');
+        meta.name = 'viewport';
+        meta.content = 'width=device-width, height=device-height, initial-scale=1.0, user-scalable=no, shrink-to-fit=yes';
+        document.getElementsByTagName('head')[0].appendChild(meta);
+        document.querySelector("#unity-container").className = "unity-mobile";
+        canvas.className = "unity-mobile";
+
+
+
+#if SHOW_DIAGNOSTICS
+        // position the diagnostics icon in the corner on the canvas
+        diagnostics_icon.style.position = "fixed";
+        diagnostics_icon.style.bottom = "10px";
+        diagnostics_icon.style.right = "0px";
+        canvas.after(diagnostics_icon);
+#endif
+
+      } 
+
+#if BACKGROUND_FILENAME
+      canvas.style.background = "url('" + buildUrl + "/{{{ BACKGROUND_FILENAME.replace(/'/g, '%27') }}}') center / cover";
+#endif
+      document.querySelector("#unity-loading-bar").style.display = "block";
+
+      var _unityInstance = null;
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          document.querySelector("#unity-progress-bar-full").style.width = 100 * progress + "%";
+              }).then((unityInstance) => {
+                _unityInstance = unityInstance;
+                document.querySelector("#unity-loading-bar").style.display = "none";
+#if SHOW_DIAGNOSTICS
+                document.getElementById("diagnostics-icon").onclick = () => {
+                  unityDiagnostics.openDiagnosticsDiv(unityInstance.GetMetricsInfo);
+                };
+#endif
+                
+
+#if DEVELOPMENT_PLAYER
+                
+                var quit = document.createElement("button");
+                quit.style = "margin-left: 5px; background-color: lightgray; border: none; padding: 5px; cursor: pointer";
+                quit.innerHTML = "Unload";
+                document.querySelector("#unity-build-title").appendChild(quit);
+                quit.onclick = () => {
+                  // Quit Unity application execution
+                  unityInstance.Quit().then(() => {
+                    // Remove DOM elements from the page so GC can run
+                    document.querySelector("#unity-container").remove();
+                    canvas = null;
+                    // Remover script elements from the page so GC can run
+                    script.remove();
+                    script = null;
+                  });
+                };
+#endif
+              }).catch((message) => {
+                alert(message);
+              });
+            };
+
+      document.body.appendChild(script);
+
+      </script> 
+
+<script >
+
+  let ysdk = null;
+  let player = null;
+  let lb = null;
+  let userLanguage = "";
+  let _flags = "";
+  const UNITY_OBJ = "YandexBridge";
+
+  function initPlayer() {
+      return ysdk.getPlayer().then(_player => {
+          player = _player;
+          return player;
+      });
+  }
+
+  YaGames.init().then(_ysdk => {
+    console.log("✅ Yandex SDK initialized");
+    ysdk = _ysdk;
+    userLanguage = ysdk.environment.i18n.lang;
+
+    // Лидерборды
+    ysdk.getLeaderboards().then(_lb => {
+        lb = _lb;
+    });
+
+    // Игрок
+    initPlayer().then(_player => {
+        console.log("✅ Player initialized:", _player.getMode());
+
+        if (_player.getMode() === "lite") {
+            // Гость - ничего не делаем
+        } else {
+            sendPlayerInfoToUnity(_player);
+        }
+    }).catch(err => {
+        console.error("❌ Ошибка при инициализации игрока:", err);
+    });
+
+    // Отзыв
+    ysdk.feedback?.canReview().then(({ value }) => {
+        if (value) {
+            ysdk.feedback.requestReview();
+        }
+    });
+
+    }).catch(err => {
+        console.error("❌ Ошибка инициализации YaGames:", err);
+    });
+    
+  
+  // Универсальная отправка в Unity
+  function sendToUnity(method, data = "") {
+      if (typeof _unityInstance !== "undefined") {
+          _unityInstance.SendMessage(UNITY_OBJ, method, data);
+      }
+  }
+  
+  // Отправка имени и id
+  function sendPlayerInfoToUnity(_player) {
+      console.log("SEND PLAYER INFO", _player)
+      const data = JSON.stringify({
+          id: _player.getUniqueID(),
+          name: _player.getName?.() || "Guest",
+          lang: userLanguage
+      });
+      sendToUnity("setProfileFromYandex", data);
+  }
+
+
+  // Ручной вызов авторизации
+  function getProfile() {
+      console.log('try to auth with unity');
+      initPlayer()
+              .then(_player => {
+                  console.log("✅ Player initialized:", _player.getMode());
+  
+                  if (_player.getMode() === "lite") {
+                      ysdk.auth.openAuthDialog()
+                          .then(() => {
+                              console.log("✅ Пользователь авторизовался");
+  
+                              // Сохраняем флаг в localStorage
+                              localStorage.setItem("authorized_once", "true");
+  
+                              initPlayer().then(_player => {
+                                  sendPlayerInfoToUnity(_player);
+                              });
+                          })
+                          .catch(() => {
+                              console.warn("❌ Пользователь отказался от авторизации");
+                          });
+  
+                  } else {
+                      // Уже был авторизован
+                      localStorage.setItem("authorized_once", "true");
+                      sendPlayerInfoToUnity(_player);
+                  }
+              })
+              .catch(err => {
+                  console.error("❌ Ошибка при инициализации игрока:", err);
+              });
+  }
+  
+  // Автоматическая авторизация (если была ранее)
+  function autoLoginIfPossible() {
+        ysdk.features.LoadingAPI?.ready()
+        if (localStorage.getItem("authorized_once") === "true") {
+            console.log("🚀 Автоинициализация профиля");
+            initPlayer().then(_player => {
+                sendPlayerInfoToUnity(_player);
+            });
+        } else {
+            console.log("👤 Ждём ручную авторизацию");
+      }
+  }
+  
+  
+  function getGameFlag(Flag) {
+    ysdk.getFlags().then(flags => {
+        const flagsJson = JSON.stringify(flags);
+        console.log("Flags - ", flags);
+        
+        // Отправляем в Unity после того как флаги получены!
+        sendToUnity("setFlags", flagsJson);
+        
+    }).catch(err => {
+        console.error("❌ Ошибка при получении флагов:", err);
+    });
+}
+
+  
+  // Начало/конец уровня
+  function startLevel() {
+      ysdk.features.GameplayAPI?.start();
+      sendToUnity("resumeGame");
+  }
+  function stopLevel() {
+      ysdk.features.GameplayAPI?.stop();
+      sendToUnity("stopGame")
+  }
+  
+  // Реклама (обычная и наградная)
+  function showCommonADV() {
+      stopLevel();
+      ysdk.adv.showFullscreenAdv({
+          callbacks: {
+              onClose: () => startLevel(),
+              onError: () => startLevel()
+          }
+      });
+  }
+  function showRewardADV() {
+      stopLevel();
+      ysdk.adv.showRewardedVideo({
+          callbacks: {
+              onRewarded: () => sendToUnity("onRewarded"),
+              onClose: () => startLevel(),
+              onError: () => startLevel()
+          }
+      });
+  }
+  
+  // Лидеры
+  function getLeaderBoard(leaderBoard,top,around) {
+      if (!lb) return;
+      console.log("📊 leaderboard name =", leaderBoard);
+      const config = {
+          quantityTop: top,
+          includeUser: true,
+          quantityAround: around
+      };
+  
+      lb.getLeaderboardEntries(leaderBoard, config)
+          .then(res => {
+              const entries = res.entries.map(e => ({
+                  playerPublicName: e.player.publicName,
+                  score: e.score,
+                  playerAvatarUrl: e.player.avatarSrc
+              }));
+              sendToUnity("setLeaderBoardFromYandex", JSON.stringify({ entries }));
+          });
+  }
+  
+  function setLeaderBoard(leaderBoard,score) {
+      lb?.setLeaderboardScore(leaderBoard, score).then(() => {
+              console.log(`✅ Установлен результат ${score} в таблицу ${leaderBoard}`);
+          })
+          .catch(err => {
+              console.error("❌ Ошибка установки счёта:", err);
+          });;
+  }
+  
+  // Сохранение прогресса
+  function Save(dataKey, dataInfo) {
+      const data = JSON.stringify({ [dataKey]: dataInfo });
+  
+      ysdk.getStorage()
+          .then(storage => storage.setItem(dataKey, data))
+          .then(() => console.log(`✅ Данные по ключу ${dataKey} сохранены`))
+          .catch(err => console.error("❌ Ошибка сохранения:", err));
+  }
+  
+  // Загрузка прогресса
+  function Load(dataKey) {
+      if (!ysdk) return;
+  
+      ysdk.getStorage()
+          .then(storage => storage.getItem(dataKey))
+          .then(json => {
+              if (json) {
+                  console.log(`📥 Данные по ключу "${dataKey}" загружены:`, json);
+                  sendToUnity("loadPlayerDataFromYandex", json);
+              } else {
+                  console.log(`📭 Нет данных по ключу "${dataKey}"`);
+              }
+          })
+          .catch(err => {
+              console.error(`❌ Ошибка загрузки "${dataKey}":`, err);
+          });
+  }
+  
+  </script>
+  </body>
+</html>
